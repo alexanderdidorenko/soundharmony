@@ -260,8 +260,8 @@ public class MainActivity extends AppCompatActivity {
                         String artist = trackJson.getString("artist");
                         String trackName = trackJson.getString("trackName");
                         String duration = trackJson.getString("duration");
-                        // Если необходимы, добавьте другие поля
-                        queue.add(new MusicTrack(artist, trackName, duration));
+                        Uri audioUri = Uri.parse(trackJson.getString("audioUri"));
+                        queue.add(new MusicTrack(artist, trackName, duration, audioUri));
                     }
                 }
             } catch (IOException | JSONException e) {
@@ -277,10 +277,31 @@ public class MainActivity extends AppCompatActivity {
             activity.updateMusicQueue(queue);
         }
     }
+
+    // Метод для обновления очереди
     public void updateMusicQueue(ArrayList<MusicTrack> queue) {
-        musicList.clear();
-        musicList.addAll(queue);
-        adapter.notifyDataSetChanged();
+        if (musicList.isEmpty()) {
+            musicList.addAll(queue);
+            adapter.notifyDataSetChanged();
+            if (!musicList.isEmpty()) {
+                playNextTrack();
+            }
+        } else {
+            // Обновление текущей очереди
+            for (MusicTrack newTrack : queue) {
+                boolean exists = false;
+                for (MusicTrack existingTrack : musicList) {
+                    if (existingTrack.getAudioUri().equals(newTrack.getAudioUri())) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    musicList.add(newTrack);
+                    adapter.notifyDataSetChanged();
+                }
+            }
+        }
     }
 
 
@@ -373,21 +394,23 @@ public class MainActivity extends AppCompatActivity {
         if (currentTrackIndex != -1 && currentTrackIndex < musicList.size()) {
             MusicTrack completedTrack = musicList.get(currentTrackIndex); // Получаем завершенный трек
 
+            // Удаление трека с сервера
             deleteTrackFromServer(completedTrack.getAudioUri());
 
-            // Remove the completed track from the list
+            // Удаляем завершенный трек из списка
             musicList.remove(currentTrackIndex);
-            adapter.notifyDataSetChanged(); // Update the RecyclerView
+            adapter.notifyDataSetChanged(); // Обновляем RecyclerView
 
             if (!musicList.isEmpty()) {
-                // Play the next track
+                // Воспроизводим следующий трек
                 playNextTrack();
             } else {
-                // No more tracks to play
+                // Нет треков для воспроизведения
                 currentTrackIndex = -1;
             }
         }
     }
+
     private void deleteTrackFromServer(Uri audioUri) {
         new DeleteTrackTask(this, audioUri).execute(DELETE_TRACK_REQUEST);
     }
@@ -434,4 +457,5 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(context, result, Toast.LENGTH_LONG).show();
         }
     }
+
 }
