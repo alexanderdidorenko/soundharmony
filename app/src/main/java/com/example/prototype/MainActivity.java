@@ -91,6 +91,18 @@ public class MainActivity extends AppCompatActivity {
                 onTrackCompletion();
             }
         });
+        startQueueUpdate();
+    }
+    private void startQueueUpdate() {
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                // Запрос на получение очереди треков
+                new GetQueueTask(MainActivity.this).execute(GET_QUEUE_REQUEST);
+                // Повторение запроса каждые 5 секунд
+                handler.postDelayed(this, 20000);
+            }
+        }, 20000);
     }
 
     private void openFileChooser() {
@@ -221,7 +233,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-
     private static class GetQueueTask extends AsyncTask<String, Void, ArrayList<MusicTrack>> {
         private Context context;
 
@@ -242,24 +253,19 @@ public class MainActivity extends AppCompatActivity {
             try {
                 Response httpResponse = client.newCall(request).execute();
                 if (httpResponse.isSuccessful()) {
-                    if (httpResponse.isSuccessful()) {
-                        String responseBody = httpResponse.body().string();
-                        JSONArray jsonArray = new JSONArray(responseBody);
-                        for (int i = 0; i < jsonArray.length(); i++) {
-                            JSONObject trackJson = jsonArray.getJSONObject(i);
-                            String artist = trackJson.getString("artist");
-                            String trackName = trackJson.getString("trackName");
-                            String duration = trackJson.getString("duration");
-                            queue.add(new MusicTrack(artist, trackName, duration));
-                        }
+                    String responseBody = httpResponse.body().string();
+                    JSONArray jsonArray = new JSONArray(responseBody);
+                    for (int i = 0; i < jsonArray.length(); i++) {
+                        JSONObject trackJson = jsonArray.getJSONObject(i);
+                        String artist = trackJson.getString("artist");
+                        String trackName = trackJson.getString("trackName");
+                        String duration = trackJson.getString("duration");
+                        // Если необходимы, добавьте другие поля
+                        queue.add(new MusicTrack(artist, trackName, duration));
                     }
-                } else {
-                    // Handle unsuccessful response
                 }
-            } catch (IOException e) {
+            } catch (IOException | JSONException e) {
                 e.printStackTrace();
-            } catch (JSONException e) {
-                throw new RuntimeException(e);
             }
 
             return queue;
@@ -271,16 +277,12 @@ public class MainActivity extends AppCompatActivity {
             activity.updateMusicQueue(queue);
         }
     }
-
-    // Method to update the music queue
     public void updateMusicQueue(ArrayList<MusicTrack> queue) {
         musicList.clear();
         musicList.addAll(queue);
         adapter.notifyDataSetChanged();
-        if (!musicList.isEmpty()) {
-            playNextTrack();
-        }
     }
+
 
     // Method to send track information to the server
     private void sendTrackToServer(String artist, String trackName, String duration, Uri audioUri) {
