@@ -278,31 +278,45 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+
     // Метод для обновления очереди
-    public void updateMusicQueue(ArrayList<MusicTrack> queue) {
-        if (musicList.isEmpty()) {
-            musicList.addAll(queue);
-            adapter.notifyDataSetChanged();
-            if (!musicList.isEmpty()) {
-                playNextTrack();
+    public void updateMusicQueue(ArrayList<MusicTrack> serverQueue) {
+        // Удаляем из локальной очереди треки, которых нет в серверной очереди
+        for (int i = 0; i < musicList.size(); i++) {
+            MusicTrack localTrack = musicList.get(i);
+            boolean existsInServerQueue = false;
+            for (MusicTrack serverTrack : serverQueue) {
+                if (localTrack.getAudioUri().equals(serverTrack.getAudioUri())) {
+                    existsInServerQueue = true;
+                    break;
+                }
             }
-        } else {
-            // Обновление текущей очереди
-            for (MusicTrack newTrack : queue) {
-                boolean exists = false;
-                for (MusicTrack existingTrack : musicList) {
-                    if (existingTrack.getAudioUri().equals(newTrack.getAudioUri())) {
-                        exists = true;
-                        break;
-                    }
-                }
-                if (!exists) {
-                    musicList.add(newTrack);
-                    adapter.notifyDataSetChanged();
-                }
+            if (!existsInServerQueue) {
+                musicList.remove(i);
+                i--; // уменьшаем индекс после удаления
             }
         }
+
+        // Добавляем в локальную очередь треки, которые есть на сервере, но отсутствуют в локальной очереди
+        for (MusicTrack serverTrack : serverQueue) {
+            boolean existsInLocalQueue = false;
+            for (MusicTrack localTrack : musicList) {
+                if (serverTrack.getAudioUri().equals(localTrack.getAudioUri())) {
+                    existsInLocalQueue = true;
+                    break;
+                }
+            }
+            if (!existsInLocalQueue) {
+                musicList.add(serverTrack);
+            }
+        }
+
+        adapter.notifyDataSetChanged(); // Обновляем RecyclerView
+        if (!musicList.isEmpty() && !mediaPlayer.isPlaying()) {
+            playNextTrack();
+        }
     }
+
 
 
     // Method to send track information to the server
